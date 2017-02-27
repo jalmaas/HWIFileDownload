@@ -347,6 +347,19 @@
 
 #pragma mark - Download Stop
 
+- (void)suspendDownloadWithIdentifier:(nonnull NSString *)aDownloadIdentifier
+{
+    NSInteger aDownloadID = [self downloadIDForActiveDownloadToken:aDownloadIdentifier];
+    HWIFileDownloadItem *aDownloadItem = [self.activeDownloadsDictionary objectForKey:@(aDownloadID)];
+    if (aDownloadItem)
+    {
+        NSURLSessionDownloadTask *aDownloadTask = aDownloadItem.sessionDownloadTask;
+        if (aDownloadTask)
+        {
+            [aDownloadTask suspend];
+        }
+    }
+}
 
 - (void)pauseDownloadWithIdentifier:(nonnull NSString *)aDownloadIdentifier
 {

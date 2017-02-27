@@ -133,10 +133,10 @@ typedef void (^HWIFileDownloaderPauseResumeDataBlock)(NSData * _Nullable aResume
 
 
 /**
- Pauses the download of a download item.
+ Suspends (pauses) the download of a download item.
  @param aDownloadIdentifier Download identifier of the download item.
  */
-- (void)pauseDownloadWithIdentifier:(nonnull NSString *)aDownloadIdentifier;
+- (void)suspendDownloadWithIdentifier:(nonnull NSString *)aDownloadIdentifier;
 
 
 /**
