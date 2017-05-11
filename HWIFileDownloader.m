@@ -1322,7 +1322,6 @@ didReceiveChallenge:(NSURLAuthenticationChallenge *)aChallenge
                      downloadID:(NSUInteger)aDownloadID
                      resumeData:(nullable NSData *)aResumeData
 {
-    aDownloadItem.progress.completedUnitCount = aDownloadItem.progress.totalUnitCount;
     [self.activeDownloadsDictionary removeObjectForKey:@(aDownloadID)];
     [self.fileDownloadDelegate decrementNetworkActivityIndicatorActivityCount];
 
