@@ -78,7 +78,7 @@
     {
         self.fileDownloader = [[HWIFileDownloader alloc] initWithDelegate:self.demoDownloadStore maxConcurrentDownloads:1];
     }
-    [self.fileDownloader setupWithCompletion:nil];
+    [self.fileDownloader setupWithCompletionBlock:nil];
     
     
     return YES;
@@ -86,7 +86,7 @@
 
 
 // iOS 7
-- (void)application:(UIApplication *)anApplication handleEventsForBackgroundURLSession:(NSString *)aBackgroundURLSessionIdentifier completionHandler:(void (^)())aCompletionHandler
+- (void)application:(UIApplication *)anApplication handleEventsForBackgroundURLSession:(NSString *)aBackgroundURLSessionIdentifier completionHandler:(void (^)(void))aCompletionHandler
 {
     [self.fileDownloader setBackgroundSessionCompletionHandlerBlock:aCompletionHandler];
 }

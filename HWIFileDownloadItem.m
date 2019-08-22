@@ -7,7 +7,7 @@
 
 /***************************************************************************
  
- Copyright (c) 2014-2016 Heiko Wichmann
+ Copyright (c) 2014-2018 Heiko Wichmann
  
  https://github.com/Heikowi/HWIFileDownload
  
@@ -50,9 +50,9 @@
 #pragma mark - Initialization
 
 
-- (nullable instancetype)initWithDownloadToken:(nonnull NSString *)aDownloadToken
-                           sessionDownloadTask:(nullable NSURLSessionDownloadTask *)aSessionDownloadTask
-                                 urlConnection:(nullable NSURLConnection *)aURLConnection
+- (nonnull instancetype)initWithDownloadToken:(nonnull NSString *)aDownloadToken
+                          sessionDownloadTask:(nullable NSURLSessionDownloadTask *)aSessionDownloadTask
+                                urlConnection:(nullable NSURLConnection *)aURLConnection
 {
     self = [super init];
     if (self)

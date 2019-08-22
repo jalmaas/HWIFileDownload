@@ -7,7 +7,7 @@
 
 /***************************************************************************
  
- Copyright (c) 2014-2016 Heiko Wichmann
+ Copyright (c) 2014-2018 Heiko Wichmann
  
  https://github.com/Heikowi/HWIFileDownload
  
@@ -37,4 +37,4 @@
  HWIBackgroundSessionCompletionHandlerBlock is a block assigned to the HWIFileDownloader
  in the application delegate on call application:handleEventsForBackgroundURLSession:completionHandler:
  */
-typedef void (^HWIBackgroundSessionCompletionHandlerBlock)();
+typedef void (^HWIBackgroundSessionCompletionHandlerBlock)(void);

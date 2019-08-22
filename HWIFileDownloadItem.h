@@ -7,7 +7,7 @@
 
 /***************************************************************************
  
- Copyright (c) 2014-2016 Heiko Wichmann
+ Copyright (c) 2014-2018 Heiko Wichmann
  
  https://github.com/Heikowi/HWIFileDownload
  
@@ -41,9 +41,9 @@
  */
 @interface HWIFileDownloadItem : NSObject
 
-- (nullable instancetype)initWithDownloadToken:(nonnull NSString *)aDownloadToken
-                           sessionDownloadTask:(nullable NSURLSessionDownloadTask *)aSessionDownloadTask
-                                 urlConnection:(nullable NSURLConnection *)aURLConnection;
+- (nonnull instancetype)initWithDownloadToken:(nonnull NSString *)aDownloadToken
+                          sessionDownloadTask:(nullable NSURLSessionDownloadTask *)aSessionDownloadTask
+                                urlConnection:(nullable NSURLConnection *)aURLConnection;
 
 
 @property (nonatomic, strong, nullable) NSDate *downloadStartDate;
@@ -63,7 +63,7 @@
 @property (nonatomic, strong, nullable) NSURL *finalLocalFileURL;
 
 
-- (nullable HWIFileDownloadItem *)init __attribute__((unavailable("use initWithDownloadToken:sessionDownloadTask:urlConnection:")));
-+ (nullable HWIFileDownloadItem *)new __attribute__((unavailable("use initWithDownloadToken:sessionDownloadTask:urlConnection:")));
+- (nonnull HWIFileDownloadItem *)init __attribute__((unavailable("use initWithDownloadToken:sessionDownloadTask:urlConnection:")));
++ (nonnull HWIFileDownloadItem *)new __attribute__((unavailable("use initWithDownloadToken:sessionDownloadTask:urlConnection:")));
 
 @end

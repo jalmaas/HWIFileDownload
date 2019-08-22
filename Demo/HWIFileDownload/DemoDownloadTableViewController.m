@@ -117,8 +117,13 @@
     self.tableView.rowHeight = 109.0;
     [self.tableView registerNib:[UINib nibWithNibName:@"DemoDownloadTableViewCell" bundle:[NSBundle mainBundle]] forCellReuseIdentifier:@"DemoDownloadTableViewCell"];
     self.title = @"Download";
+
+    UISwitch *useMobileDataSwitch = [[UISwitch alloc] init];
+    [useMobileDataSwitch addTarget:self action:@selector(useMobileDataSwitched:) forControlEvents:UIControlEventValueChanged];
+    UIBarButtonItem *useMobileDataBarButtonItem = [[UIBarButtonItem alloc] initWithCustomView:useMobileDataSwitch];
+    self.navigationItem.leftBarButtonItem = useMobileDataBarButtonItem;
     
-    UIBarButtonItem *aRightBarButtonItem = [[UIBarButtonItem alloc] initWithTitle:@"Crash" style:UIBarButtonItemStyleBordered target:self action:@selector(crash)];
+    UIBarButtonItem *aRightBarButtonItem = [[UIBarButtonItem alloc] initWithTitle:@"Crash" style:UIBarButtonItemStylePlain target:self action:@selector(crash)];
     self.navigationItem.rightBarButtonItem = aRightBarButtonItem;
 }
 
@@ -233,6 +238,20 @@
     NSArray *anArray = [NSArray array];
     id test = [anArray objectAtIndex:123456789];
     NSLog(@"%@", test);
+}
+
+
+- (void)useMobileDataSwitched:(UISwitch *)useMobileDataSwitch {
+    DemoDownloadAppDelegate *theAppDelegate = (DemoDownloadAppDelegate *)[UIApplication sharedApplication].delegate;
+    theAppDelegate.demoDownloadStore.allowsCellularAccess = useMobileDataSwitch.isOn;
+
+    BOOL isReachableViaWiFi = NO; // SCNetworkReachability
+
+    BOOL cancelDownloadTasks = theAppDelegate.demoDownloadStore.allowsCellularAccess ? NO : !isReachableViaWiFi;
+
+    [theAppDelegate.fileDownloader invalidateSessionConfigurationAndCancelTasks:cancelDownloadTasks];
+
+    // after cancelDownloadTasks -> restart all downloads
 }
 
 

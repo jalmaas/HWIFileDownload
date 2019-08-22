@@ -6,9 +6,9 @@
  */
 
 /***************************************************************************
-
- Copyright (c) 2014-2016 Heiko Wichmann
-
+ 
+ Copyright (c) 2014-2018 Heiko Wichmann
+ 
  https://github.com/Heikowi/HWIFileDownload
 
  This software is provided 'as-is', without any expressed or implied warranty.
@@ -43,7 +43,7 @@
 /**
  HWIFileDownloaderPauseResumeDataBlock is a block optionally called after cancelling a download.
  */
-typedef void (^HWIFileDownloaderPauseResumeDataBlock)(NSData * _Nullable aResumeData);
+typedef void (^HWIFileDownloaderPauseResumeDataBlock)(NSData * _Nullable resumeData);
 
 
 /**
@@ -51,33 +51,60 @@ typedef void (^HWIFileDownloaderPauseResumeDataBlock)(NSData * _Nullable aResume
  */
 @interface HWIFileDownloader : NSObject
 
+/**
+ NSURLSession's configuration identifier.
+ */
+@property (readonly, nonatomic, copy, nonnull) NSString *backgroundSessionIdentifier;
+
+/**
+ NSURLSession's configuration.
+ */
+@property (readonly, nonatomic, nonnull) NSURLSessionConfiguration *backgroundSessionConfiguration;
+
 
 #pragma mark - Initialization
 
 
 /**
  Secondary initializer.
- @param aDelegate Delegate for salient download events.
+ @param delegate Delegate for salient download events.
  @return HWIFileDownloader.
  */
-- (nullable instancetype)initWithDelegate:(nonnull NSObject<HWIFileDownloadDelegate>*)aDelegate;
+- (nonnull instancetype)initWithDelegate:(nonnull NSObject<HWIFileDownloadDelegate>*)delegate;
+
+/**
+ Secondary initializer.
+ @param delegate Delegate for salient download events.
+ @param maxConcurrentFileDownloadsCount Maximum number of concurrent downloads. Default: no limit.
+ @return HWIFileDownloader.
+ */
+- (nonnull instancetype)initWithDelegate:(nonnull NSObject<HWIFileDownloadDelegate>*)delegate maxConcurrentDownloads:(NSInteger)maxConcurrentFileDownloadsCount;
 
 /**
  Designated initializer.
- @param aDelegate Delegate for salient download events.
- @param aMaxConcurrentFileDownloadsCount Maximum number of concurrent downloads. Default: no limit.
+ @param delegate Delegate for salient download events.
+ @param maxConcurrentFileDownloadsCount Maximum number of concurrent downloads. Default: no limit.
+ @param backgroundSessionIdentifier NSURLSession's configuration identifier
  @return HWIFileDownloader.
  */
-- (nullable HWIFileDownloader*)initWithDelegate:(nonnull NSObject<HWIFileDownloadDelegate>*)aDelegate maxConcurrentDownloads:(NSInteger)aMaxConcurrentFileDownloadsCount;
-- (nullable HWIFileDownloader*)init __attribute__((unavailable("use initWithDelegate:maxConcurrentDownloads: or initWithDelegate:")));
-+ (nullable HWIFileDownloader*)new __attribute__((unavailable("use initWithDelegate:maxConcurrentDownloads: or initWithDelegate:")));
+- (nonnull instancetype)initWithDelegate:(nonnull NSObject<HWIFileDownloadDelegate>*)delegate maxConcurrentDownloads:(NSInteger)maxConcurrentFileDownloadsCount backgroundSessionIdentifier:(nonnull NSString *)backgroundSessionIdentifier;
+- (nonnull HWIFileDownloader*)init __attribute__((unavailable("use initWithDelegate:maxConcurrentDownloads: or initWithDelegate:")));
++ (nonnull HWIFileDownloader*)new __attribute__((unavailable("use initWithDelegate:maxConcurrentDownloads: or initWithDelegate:")));
 
 
 /**
  Set up file downloader.
- @param aSetupCompletionBlock Completion block to be called asynchronously after setup is finished.
+ @param completionBlock Completion block to be called asynchronously after setup is finished.
  */
-- (void)setupWithCompletion:(nullable void (^)(void))aSetupCompletionBlock;
+- (void)setupWithCompletionBlock:(nullable void (^)(void))completionBlock;
+
+
+/**
+ Invalidate the shared NSURLSession configuration.
+ @param cancelTasks Tasks can be canceled or let them finish.
+ @discussion A new background session configuration is immediately created. The delegate  `customizeBackgroundSessionConfiguration:backgroundSessionConfiguration` method is called right after the instantiation of the new configuration.
+ */
+- (void)invalidateSessionConfigurationAndCancelTasks:(BOOL)cancelTasks NS_SWIFT_NAME(invalidateSessionConfiguration(cancelTasks:));
 
 
 #pragma mark - Download
@@ -85,37 +112,37 @@ typedef void (^HWIFileDownloaderPauseResumeDataBlock)(NSData * _Nullable aResume
 
 /**
  Starts a download.
- @param aDownloadIdentifier Download identifier of a download item.
- @param aRemoteURL Remote URL from where data should be downloaded.
+ @param identifier Download identifier of a download item.
+ @param remoteURL Remote URL from where data should be downloaded.
  */
-- (void)startDownloadWithIdentifier:(nonnull NSString *)aDownloadIdentifier
-                      fromRemoteURL:(nonnull NSURL *)aRemoteURL;
+- (void)startDownloadWithIdentifier:(nonnull NSString *)identifier
+                      fromRemoteURL:(nonnull NSURL *)remoteURL;
 
 /**
  Starts a download.
- @param aDownloadIdentifier Download identifier of a download item.
- @param aResumeData Incomplete data from previous download with implicit remote source information.
+ @param identifier Download identifier of a download item.
+ @param resumeData Incomplete data from previous download with implicit remote source information.
  */
-- (void)startDownloadWithIdentifier:(nonnull NSString *)aDownloadIdentifier
-                    usingResumeData:(nonnull NSData *)aResumeData;
+- (void)startDownloadWithIdentifier:(nonnull NSString *)identifier
+                    usingResumeData:(nonnull NSData *)resumeData;
 
 
 /**
  Answers the question whether a download is currently running for a download item.
- @param aDownloadIdentifier Download identifier of the download item.
+ @param identifier Download identifier of the download item.
  @return YES if a download is currently running for the download item, NO otherwise.
  @discussion Waiting downloads are included.
  */
-- (BOOL)isDownloadingIdentifier:(nonnull NSString *)aDownloadIdentifier;
+- (BOOL)isDownloadingIdentifier:(nonnull NSString *)identifier;
 
 
 /**
  Answers the question whether a download is currently waiting for start.
- @param aDownloadIdentifier Download identifier of the download item.
+ @param identifier Download identifier of the download item.
  @return YES if a download is currently waiting for start, NO otherwise.
  @discussion Downloads might be queued and waiting for download. When a download is waiting, download of data from a remote host did not start yet.
  */
-- (BOOL)isWaitingForDownloadOfIdentifier:(nonnull NSString *)aDownloadIdentifier;
+- (BOOL)isWaitingForDownloadOfIdentifier:(nonnull NSString *)identifier;
 
 
 /**
@@ -127,9 +154,9 @@ typedef void (^HWIFileDownloaderPauseResumeDataBlock)(NSData * _Nullable aResume
 
 /**
  Cancels the download of a download item.
- @param aDownloadIdentifier Download identifier of the download item.
+ @param identifier Download identifier of the download item.
  */
-- (void)cancelDownloadWithIdentifier:(nonnull NSString *)aDownloadIdentifier;
+- (void)cancelDownloadWithIdentifier:(nonnull NSString *)identifier;
 
 
 /**
@@ -150,9 +177,9 @@ typedef void (^HWIFileDownloaderPauseResumeDataBlock)(NSData * _Nullable aResume
 
 /**
  Sets the completion handler for background session.
- @param aBackgroundSessionCompletionHandlerBlock Completion handler block.
+ @param backgroundSessionCompletionHandlerBlock Completion handler block.
  */
-- (void)setBackgroundSessionCompletionHandlerBlock:(nullable HWIBackgroundSessionCompletionHandlerBlock)aBackgroundSessionCompletionHandlerBlock;
+- (void)setBackgroundSessionCompletionHandlerBlock:(nullable HWIBackgroundSessionCompletionHandlerBlock)backgroundSessionCompletionHandlerBlock;
 
 
 #pragma mark - Progress
@@ -160,10 +187,10 @@ typedef void (^HWIFileDownloaderPauseResumeDataBlock)(NSData * _Nullable aResume
 
 /**
  Returns download progress information for a download item.
- @param aDownloadIdentifier Download identifier of the download item.
+ @param identifier Download identifier of the download item.
  @return Download progress information.
  */
-- (nullable HWIFileDownloadProgress *)downloadProgressForIdentifier:(nonnull NSString *)aDownloadIdentifier;
+- (nullable HWIFileDownloadProgress *)downloadProgressForIdentifier:(nonnull NSString *)identifier;
 
 
 @end

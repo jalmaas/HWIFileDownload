@@ -7,7 +7,7 @@
 
 /***************************************************************************
  
- Copyright (c) 2014-2016 Heiko Wichmann
+ Copyright (c) 2014-2018 Heiko Wichmann
  
  https://github.com/Heikowi/HWIFileDownload
  
@@ -39,6 +39,7 @@
 
 @interface HWIFileDownloader()<NSURLSessionDelegate, NSURLSessionTaskDelegate, NSURLSessionDataDelegate, NSURLSessionDownloadDelegate, NSURLConnectionDelegate>
 
+@property (nonatomic, copy, nonnull) NSString *backgroundSessionIdentifier;
 @property (nonatomic, strong, nullable) NSURLSession *backgroundSession;
 @property (nonatomic, strong, nonnull) NSMutableDictionary<NSNumber *, HWIFileDownloadItem *> *activeDownloadsDictionary;
 @property (nonatomic, strong, nonnull) NSMutableArray<NSDictionary <NSString *, NSObject *> *> *waitingDownloadsArray;
@@ -58,17 +59,23 @@
 #pragma mark - Initialization
 
 
-- (nullable instancetype)initWithDelegate:(nonnull NSObject<HWIFileDownloadDelegate>*)aDelegate
+- (nonnull instancetype)initWithDelegate:(nonnull NSObject<HWIFileDownloadDelegate>*)aDelegate
 {
     return [self initWithDelegate:aDelegate maxConcurrentDownloads:-1];
 }
 
+- (nonnull instancetype)initWithDelegate:(nonnull NSObject<HWIFileDownloadDelegate>*)aDelegate maxConcurrentDownloads:(NSInteger)aMaxConcurrentFileDownloadsCount
+{
+    NSString *aBackgroundDownloadSessionIdentifier = [NSString stringWithFormat:@"%@.HWIFileDownload.%@", [[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleIdentifier"], [NSUUID new].UUIDString];
+    return [self initWithDelegate:aDelegate maxConcurrentDownloads:aMaxConcurrentFileDownloadsCount backgroundSessionIdentifier:aBackgroundDownloadSessionIdentifier];
+}
 
-- (nullable instancetype)initWithDelegate:(nonnull NSObject<HWIFileDownloadDelegate>*)aDelegate maxConcurrentDownloads:(NSInteger)aMaxConcurrentFileDownloadsCount
+- (nonnull instancetype)initWithDelegate:(nonnull NSObject<HWIFileDownloadDelegate>*)aDelegate maxConcurrentDownloads:(NSInteger)aMaxConcurrentFileDownloadsCount backgroundSessionIdentifier:(nonnull NSString *)aBackgroundSessionIdentifier
 {
     self = [super init];
     if (self)
     {
+        self.backgroundSessionIdentifier = aBackgroundSessionIdentifier;
         self.maxConcurrentFileDownloadsCount = -1;
         if (aMaxConcurrentFileDownloadsCount > 0)
         {
@@ -82,17 +89,16 @@
         
         if (floor(NSFoundationVersionNumber) > NSFoundationVersionNumber_iOS_6_1)
         {
-            NSString *aBackgroundDownloadSessionIdentifier = [NSString stringWithFormat:@"%@.HWIFileDownload", [[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleIdentifier"]];
             NSURLSessionConfiguration *aBackgroundSessionConfiguration = nil;
             if (floor(NSFoundationVersionNumber) > NSFoundationVersionNumber_iOS_7_1)
             {
-                aBackgroundSessionConfiguration = [NSURLSessionConfiguration backgroundSessionConfigurationWithIdentifier:aBackgroundDownloadSessionIdentifier];
+                aBackgroundSessionConfiguration = [NSURLSessionConfiguration backgroundSessionConfigurationWithIdentifier:self.backgroundSessionIdentifier];
             }
             else
             {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-                aBackgroundSessionConfiguration = [NSURLSessionConfiguration backgroundSessionConfiguration:aBackgroundDownloadSessionIdentifier];
+                aBackgroundSessionConfiguration = [NSURLSessionConfiguration backgroundSessionConfiguration:self.backgroundSessionIdentifier];
 #pragma GCC diagnostic pop
             }
             if ([self.fileDownloadDelegate respondsToSelector:@selector(customizeBackgroundSessionConfiguration:)])
@@ -113,7 +119,7 @@
 }
 
 
-- (void)setupWithCompletion:(nullable void (^)(void))aSetupCompletionBlock
+- (void)setupWithCompletionBlock:(nullable void (^)(void))aSetupCompletionBlock
 {
     if (floor(NSFoundationVersionNumber) > NSFoundationVersionNumber_iOS_6_1)
     {
@@ -139,15 +145,21 @@
                         [self.activeDownloadsDictionary setObject:aDownloadItem forKey:@(aDownloadTask.taskIdentifier)];
                         NSString *aDownloadToken = [aDownloadItem.downloadToken copy];
                         [aDownloadItem.progress setPausingHandler:^{
-                            [self pauseDownloadWithIdentifier:aDownloadToken];
+                            dispatch_async(dispatch_get_main_queue(), ^{
+                                [self pauseDownloadWithIdentifier:aDownloadToken];
+                            });
                         }];
                         [aDownloadItem.progress setCancellationHandler:^{
-                            [self cancelDownloadWithIdentifier:aDownloadToken];
+                            dispatch_async(dispatch_get_main_queue(), ^{
+                                [self cancelDownloadWithIdentifier:aDownloadToken];
+                            });
                         }];
                         if (floor(NSFoundationVersionNumber) > NSFoundationVersionNumber_iOS_8_4)
                         {
                             [aDownloadItem.progress setResumingHandler:^{
-                                [self resumeDownloadWithIdentifier:aDownloadToken];
+                                dispatch_async(dispatch_get_main_queue(), ^{
+                                    [self resumeDownloadWithIdentifier:aDownloadToken];
+                                });
                             }];
                         }
                     }
@@ -222,7 +234,24 @@
             }
             else if (aRemoteURL)
             {
-                aDownloadTask = [self.backgroundSession downloadTaskWithURL:aRemoteURL];
+                NSURLRequest *aURLRequest = nil;
+                if ([self.fileDownloadDelegate respondsToSelector:@selector(urlRequestForRemoteURL:)])
+                {
+                    aURLRequest = [self.fileDownloadDelegate urlRequestForRemoteURL:aRemoteURL];
+                }
+                else
+                {
+                    NSTimeInterval aRequestTimeoutInterval = 60.0; // iOS default value
+                    aURLRequest = [[NSURLRequest alloc] initWithURL:aRemoteURL cachePolicy:NSURLRequestReloadIgnoringLocalCacheData timeoutInterval:aRequestTimeoutInterval];
+                }
+                if (aURLRequest)
+                {
+                    aDownloadTask = [self.backgroundSession downloadTaskWithRequest:aURLRequest];
+                }
+                else
+                {
+                    NSLog(@"ERR: No url request (%@, %d)", [NSString stringWithUTF8String:__FILE__].lastPathComponent, __LINE__);
+                }
             }
             aDownloadID = aDownloadTask.taskIdentifier;
             aDownloadTask.taskDescription = aDownloadToken;
@@ -284,15 +313,21 @@
             [self.activeDownloadsDictionary setObject:aDownloadItem forKey:@(aDownloadID)];
             NSString *aDownloadToken = [aDownloadItem.downloadToken copy];
             [aDownloadItem.progress setPausingHandler:^{
-                [self pauseDownloadWithIdentifier:aDownloadToken];
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    [self pauseDownloadWithIdentifier:aDownloadToken];
+                });
             }];
             [aDownloadItem.progress setCancellationHandler:^{
-                [self cancelDownloadWithIdentifier:aDownloadToken];
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    [self cancelDownloadWithIdentifier:aDownloadToken];
+                });
             }];
             if (floor(NSFoundationVersionNumber) > NSFoundationVersionNumber_iOS_8_4)
             {
                 [aDownloadItem.progress setResumingHandler:^{
-                    [self resumeDownloadWithIdentifier:aDownloadToken];
+                    dispatch_async(dispatch_get_main_queue(), ^{
+                        [self resumeDownloadWithIdentifier:aDownloadToken];
+                    });
                 }];
             }
             [self.fileDownloadDelegate incrementNetworkActivityIndicatorActivityCount];
@@ -448,7 +483,7 @@
         else
         {
             NSLog(@"INFO: NSURLSessionDownloadTask cancelled (task not found): %@ (%@, %d)", aDownloadItem.downloadToken, [NSString stringWithUTF8String:__FILE__].lastPathComponent, __LINE__);
-            NSError *aPauseError = [[NSError alloc] initWithDomain:NSURLErrorDomain code:NSURLErrorCancelled userInfo:nil];
+            NSError *aPauseError = [[NSError alloc] initWithDomain:NSURLErrorDomain code:NSURLErrorCancelled userInfo:@{NSURLErrorFailingURLStringErrorKey: aDownloadTask.currentRequest.URL.absoluteString, NSURLErrorFailingURLErrorKey: aDownloadTask.currentRequest.URL}];
             [self handleDownloadWithError:aPauseError downloadItem:aDownloadItem downloadID:aDownloadID resumeData:nil];
         }
     }
@@ -508,7 +543,7 @@
             else
             {
                 NSLog(@"INFO: NSURLSessionDownloadTask cancelled (task not found): %@ (%@, %d)", aDownloadItem.downloadToken, [NSString stringWithUTF8String:__FILE__].lastPathComponent, __LINE__);
-                NSError *aCancelError = [[NSError alloc] initWithDomain:NSURLErrorDomain code:NSURLErrorCancelled userInfo:nil];
+                NSError *aCancelError = [[NSError alloc] initWithDomain:NSURLErrorDomain code:NSURLErrorCancelled userInfo:@{NSURLErrorFailingURLStringErrorKey: aDownloadTask.currentRequest.URL.absoluteString, NSURLErrorFailingURLErrorKey: aDownloadTask.currentRequest.URL}];
                 [self handleDownloadWithError:aCancelError downloadItem:aDownloadItem downloadID:aDownloadID resumeData:nil];
             }
         }
@@ -849,7 +884,7 @@
                 [anErrorMessagesStackArray insertObject:anErrorString atIndex:0];
                 [aDownloadItem setErrorMessagesStack:anErrorMessagesStackArray];
                 
-                NSError *aFinalError = [[NSError alloc] initWithDomain:NSURLErrorDomain code:NSURLErrorBadServerResponse userInfo:nil];
+                NSError *aFinalError = [[NSError alloc] initWithDomain:NSURLErrorDomain code:NSURLErrorBadServerResponse userInfo:@{NSURLErrorFailingURLStringErrorKey: aHttpResponse.URL.absoluteString, NSURLErrorFailingURLErrorKey: aHttpResponse.URL}];
                 [self handleDownloadWithError:aFinalError downloadItem:aDownloadItem downloadID:aDownloadTask.taskIdentifier resumeData:nil];
             }
         }
@@ -906,7 +941,7 @@ didReceiveChallenge:(NSURLAuthenticationChallenge *)aChallenge
 {
     if (self.bgSessionCompletionHandlerBlock)
     {
-        void (^completionHandler)() = self.bgSessionCompletionHandlerBlock;
+        void (^completionHandler)(void) = self.bgSessionCompletionHandlerBlock;
         self.bgSessionCompletionHandlerBlock = nil;
         completionHandler();
     }
@@ -915,7 +950,12 @@ didReceiveChallenge:(NSURLAuthenticationChallenge *)aChallenge
 
 - (void)URLSession:(NSURLSession *)aSession didBecomeInvalidWithError:(nullable NSError *)anError
 {
-    NSLog(@"ERR: URL session did become invalid with error: %@ (%@, %d)", anError, [NSString stringWithUTF8String:__FILE__].lastPathComponent, __LINE__);
+    if (anError) {
+        NSLog(@"ERR: Session did become invalid with error: %@ (%@, %d)", anError, [NSString stringWithUTF8String:__FILE__].lastPathComponent, __LINE__);
+    }
+    else {
+        NSLog(@"INFO: Session has been intentionally invalidated (%@, %d)", [NSString stringWithUTF8String:__FILE__].lastPathComponent, __LINE__);
+    }
 }
 
 
@@ -1462,5 +1502,28 @@ didReceiveChallenge:(NSURLAuthenticationChallenge *)aChallenge
     return aDescriptionString;
 }
 
-@end
+- (NSURLSessionConfiguration *)backgroundSessionConfiguration {
+    return self.backgroundSession.configuration;
+}
 
+- (void)invalidateSessionConfigurationAndCancelTasks:(BOOL)cancelTasks {
+    NSURLSession *oldBackgroundSession = self.backgroundSession;
+    self.backgroundSessionIdentifier = [NSString stringWithFormat:@"%@.%@", [[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleIdentifier"], [NSUUID new].UUIDString];
+
+    NSURLSessionConfiguration *configuration = [NSURLSessionConfiguration backgroundSessionConfigurationWithIdentifier:self.backgroundSessionIdentifier];
+    [self.fileDownloadDelegate customizeBackgroundSessionConfiguration:configuration];
+
+    self.backgroundSession = [NSURLSession sessionWithConfiguration:configuration
+                                                           delegate:self
+                                                      delegateQueue:[NSOperationQueue mainQueue]];
+
+    if (cancelTasks) {
+        [oldBackgroundSession invalidateAndCancel];
+    }
+    else {
+        // This will keep the session around long enough to finish any existing requests, after which it will go away.
+        [oldBackgroundSession finishTasksAndInvalidate];
+    }
+}
+
+@end
