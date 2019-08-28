@@ -365,16 +365,7 @@
 
 - (void)resumeSuspendedDownloadWithIdentifier:(nonnull NSString *)aDownloadIdentifier
 {
-    NSInteger aDownloadID = [self downloadIDForActiveDownloadToken:aDownloadIdentifier];
-    HWIFileDownloadItem *aDownloadItem = [self.activeDownloadsDictionary objectForKey:@(aDownloadID)];
-    if (aDownloadItem)
-    {
-        NSURLSessionDownloadTask *aDownloadTask = aDownloadItem.sessionDownloadTask;
-        if (aDownloadTask)
-        {
-            [aDownloadTask resume];
-        }
-    }
+    [self resumeDownloadWithIdentifier:aDownloadIdentifier];
 }
 
 - (void)resumeDownloadWithIdentifier:(nonnull NSString *)aDownloadIdentifier
@@ -398,16 +389,7 @@
 
 - (void)suspendDownloadWithIdentifier:(nonnull NSString *)aDownloadIdentifier
 {
-    NSInteger aDownloadID = [self downloadIDForActiveDownloadToken:aDownloadIdentifier];
-    HWIFileDownloadItem *aDownloadItem = [self.activeDownloadsDictionary objectForKey:@(aDownloadID)];
-    if (aDownloadItem)
-    {
-        NSURLSessionDownloadTask *aDownloadTask = aDownloadItem.sessionDownloadTask;
-        if (aDownloadTask)
-        {
-            [aDownloadTask suspend];
-        }
-    }
+    [self pauseDownloadWithIdentifier:aDownloadIdentifier];
 }
 
 - (void)pauseDownloadWithIdentifier:(nonnull NSString *)aDownloadIdentifier
